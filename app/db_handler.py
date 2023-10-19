@@ -1,4 +1,4 @@
-import psycopg2
+import psycopg2, traceback
 from api_handler import fetch_exchange_rate
 
 
@@ -24,7 +24,7 @@ def create_table(cursor, name_table):
     cursor.execute(create_table_query)
 
 def insert_data(cursor, date, first_currency, second_currency, rate, name_table):
-    insert_query = f'INSERT INTO {name_table} (date, first_currency, second_currency, rate) VALUES (%s, %s, %s, %s, %s)'
+    insert_query = f'INSERT INTO {name_table} (date, first_currency, second_currency, rate) VALUES (%s, %s, %s, %s)'
     cursor.execute(insert_query, (date, first_currency, second_currency, rate))
 
 def get_day_max_currency_exchange_rate(cursor, name_table):
@@ -35,7 +35,7 @@ def get_day_max_currency_exchange_rate(cursor, name_table):
 
 def get_day_min_currency_exchange_rate(cursor, name_table):
     # Находим день с минимальным курсом
-    cursor.execute(f"SELECT measurement_date FROM {name_table} WHERE rate = (SELECT MIN(rate) FROM {name_table});")
+    cursor.execute(f"SELECT date FROM {name_table} WHERE rate = (SELECT MIN(rate) FROM {name_table});")
     min_date = cursor.fetchone()
     return min_date
 
@@ -59,27 +59,33 @@ def get_avg_rate(cursor, name_table):
 
 def get_rate_last_day(cursor, name_table):
     # Находим значение курса на последний день месяца
-    cursor.execute("SELECT rate FROM bitcoin_rates WHERE measurement_date = (SELECT MAX(measurement_date) FROM bitcoin_rates);")
+    cursor.execute(f"SELECT rate FROM {name_table} WHERE date = (SELECT MAX(date) FROM {name_table});")
     last_day_rate = cursor.fetchone()[0]
     return last_day_rate
 
 def create_summary_table(cursor):
     create_summary_table = f"""
     CREATE TABLE IF NOT EXISTS summary_table (
-        currency VARCHAR
-        max_date DATE
-        min_date DATE
-        max_rate DECIMAL
-        min_rate DECIMAL
-        average_rate DECIMAL
+        currency VARCHAR,
+        month INT,
+        max_date DATE,
+        min_date DATE,
+        max_rate DECIMAL,
+        min_rate DECIMAL,
+        average_rate DECIMAL,
         last_day_rate DECIMAL
     );
     """
     cursor.execute(create_summary_table)
 
-def insert_data_summary_table(cursor, currency, max_date, min_date, max_rate, min_rate, average_rate, last_day_rate):
-    insert_query = 'INSERT INTO summary_table (currency, max_date, min_date, max_rate, min_rate, average_rate, last_day_rate) VALUES (%s, %s, %s, %s, %s, %s, %s)'
-    cursor.execute(insert_query, (currency, max_date, min_date, max_rate, min_rate, average_rate, last_day_rate))
+def insert_data_summary_table(connection, cursor, currency, month, max_date, min_date, max_rate, min_rate, average_rate, last_day_rate):
+    try:
+        insert_query_summary_table = 'INSERT INTO summary_table (currency, month, max_date, min_date, max_rate, min_rate, average_rate, last_day_rate) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)'
+        cursor.execute(insert_query_summary_table, (currency, month, max_date, min_date, max_rate, min_rate, average_rate, last_day_rate))
+        connection.commit()
+
+    except Exception:
+        traceback.print_exc()
 
 def get_currency_rate(connection, cursor, last_day, year, month, access_key, source, target, name_table ):
     try:
@@ -91,9 +97,9 @@ def get_currency_rate(connection, cursor, last_day, year, month, access_key, sou
             if rate is not None:
                 insert_data(cursor, date, source, target, rate, name_table)
                 connection.commit()
-                print('Данные успешно обновлены.')
             else:
                 print(f'Ошибка при выполнении запроса для даты {date}')
     except Exception as e:
         print()
         print(f'Ошибка: {str(e)}')
+        traceback.print_exc()
