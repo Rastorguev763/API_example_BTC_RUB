@@ -17,20 +17,24 @@ create_summary_table(cursor)
 
 print('Getting information in source')
 
-get_currency_rate(connection, cursor, LAST_DAY, YEAR, MONTH, ACCESS_KEY, SOURCE, TARGET, NAME_TABLE )
+# Полученин информации о курсе за заданный период(период задаем в конфиге)
+# get_currency_rate(connection, cursor, LAST_DAY, YEAR, MONTH, ACCESS_KEY, SOURCE, TARGET, NAME_TABLE )
 
-print('Converting data from the database')
+# print('Converting data from the database')
 
-max_date = get_day_max_currency_exchange_rate(cursor, NAME_TABLE)
-min_date = get_day_min_currency_exchange_rate(cursor, NAME_TABLE)
-max_rate = get_max_rate(cursor, NAME_TABLE)
-min_rate = get_min_rate(cursor, NAME_TABLE)
-average_rate = get_avg_rate(cursor, NAME_TABLE)
-last_day_rate = get_rate_last_day(cursor, NAME_TABLE)
+# max_date = get_day_max_currency_exchange_rate(cursor, NAME_TABLE)
+# min_date = get_day_min_currency_exchange_rate(cursor, NAME_TABLE)
+# max_rate = get_max_rate(cursor, NAME_TABLE)
+# min_rate = get_min_rate(cursor, NAME_TABLE)
+# average_rate = get_avg_rate(cursor, NAME_TABLE)
+# last_day_rate = get_rate_last_day(cursor, NAME_TABLE)
 
-print('Writing data to summary table')
+# print('Writing data to summary table')
 
-insert_data_summary_table(connection, cursor, SOURCE+TARGET, MONTH, max_date, min_date, max_rate, min_rate, average_rate, last_day_rate)
+# insert_data_summary_table(connection, cursor, SOURCE+TARGET, MONTH, max_date, min_date, max_rate, min_rate, average_rate, last_day_rate)
+
+# Получение информации о курсе в лайф
+get_currency_rate_live(connection, cursor, ACCESS_KEY, SOURCE, TARGET, NAME_TABLE)
 
 # Закрываем соединение с базой данных
 cursor.close()

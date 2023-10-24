@@ -1,6 +1,6 @@
 import psycopg2, traceback
-from api_handler import fetch_exchange_rate
-
+from api_handler import fetch_exchange_rate, fetch_exchange_rate_live
+from datetime import datetime
 
 def connect_to_db(db_name, db_user, db_password, db_host, db_port):
     return psycopg2.connect(
@@ -15,7 +15,7 @@ def create_table(cursor, name_table):
     create_table_query = f"""
     CREATE TABLE IF NOT EXISTS {name_table} (
         id SERIAL PRIMARY KEY,
-        date DATE,
+        date TIMESTAMP,
         first_currency VARCHAR,
         second_currency VARCHAR,
         rate DECIMAL
@@ -68,8 +68,8 @@ def create_summary_table(cursor):
     CREATE TABLE IF NOT EXISTS summary_table (
         currency VARCHAR,
         month INT,
-        max_date DATE,
-        min_date DATE,
+        max_date TIMESTAMP,
+        min_date TIMESTAMP,
         max_rate DECIMAL,
         min_rate DECIMAL,
         average_rate DECIMAL,
@@ -93,8 +93,10 @@ def get_currency_rate(connection, cursor, last_day, year, month, access_key, sou
         for day in range(1, last_day + 1):
             date = f"{year}-{month:02d}-{day:02d}"
             rate = fetch_exchange_rate(access_key, source, target, date)
-
             if rate is not None:
+                date = datetime.fromtimestamp(rate[1])
+                # Переводим часой пояс в по МСК
+                date = date.replace(hour=date.hour + 3)
                 insert_data(cursor, date, source, target, rate, name_table)
                 connection.commit()
             else:
@@ -103,3 +105,11 @@ def get_currency_rate(connection, cursor, last_day, year, month, access_key, sou
         print()
         print(f'Ошибка: {str(e)}')
         traceback.print_exc()
+
+def get_currency_rate_live(connection, cursor, access_key, source, target, name_table ):
+    rate_live = fetch_exchange_rate_live(access_key, source, target)
+    date = datetime.fromtimestamp(rate_live[1])
+    # Переводим часой пояс в по МСК
+    date = date.replace(hour=date.hour + 3)
+    insert_data(cursor, date, source, target, rate_live[0], name_table )
+    connection.commit()
