@@ -71,14 +71,19 @@ x-airflow-common:
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
     # WARNING: Use _PIP_ADDITIONAL_REQUIREMENTS option ONLY for a quick checks
     # for other purpose (development, test and especially production usage) build/extend Airflow image.
-    _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
+    # _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
+    _PIP_ADDITIONAL_REQUIREMENTS: apache-airflow-providers-docker==3.6.0
+  # networks:
+  #     - mynetwork
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+    # - ${AIRFLOW_PROJ_DIR:-.}/data/:/opt/airflow/data/
     # тут
-    - /var/run/docker.sock:/var/run/docker.sock
+    # - /var/run/docker.sock:/var/run/docker.sock
+    - ${AIRFLOW_PROJ_DIR:-.}/app:/app
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
@@ -149,7 +154,12 @@ services:
 
   airflow-worker:
     <<: *airflow-common
-    command: celery worker
+    command: 
+      # - /bin/bash
+      # - -c
+      # - |
+      #   pip install -r app/requirements.txt
+        celery worker
     healthcheck:
       # yamllint disable rule:line-length
       test:
@@ -297,16 +307,23 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
-  app:
-      container_name: app_container
-      build:
-        context: .
-        dockerfile: Dockerfile
-      depends_on:
-        db:
-          condition: service_healthy
-      links:
-        - db
+  # app:
+  #     container_name: app_container
+  #     build:
+  #       context: .
+  #       dockerfile: Dockerfile
+  #       # тут
+  #       args:
+  #       - user=airflow
+  #     image: get_currency_image
+  #     networks:
+  #     - mynetwork
+  #     restart: "no"
+  #     depends_on:
+  #       db:
+  #         condition: service_healthy
+      # links:
+      #   - db
   db:
     image: postgres
     container_name: postgres_app
@@ -315,8 +332,10 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_USER: postgres
       POSTGRES_DB: currency
+    # networks:
+    #   - mynetwork
     volumes:
-      - ./data:/var/lib/postgresql/data
+      - db_vol:/var/lib/postgresql/data
     ports:
       - 5433:5432
     healthcheck:
@@ -324,5 +343,23 @@ services:
       interval: 15s
       timeout: 10s
       retries: 5
+
+# # Required because of DockerOperator. For secure access and handling permissions.
+#   docker-socket-proxy:
+#     image: tecnativa/docker-socket-proxy:0.1.1
+#     environment:
+#       CONTAINERS: 1
+#       IMAGES: 1
+#       AUTH: 1
+#       POST: 1
+#     privileged: true
+#     volumes:
+#       - /var/run/docker.sock:/var/run/docker.sock:ro
+#     restart: always
+
+# networks:
+#   mynetwork:
+
 volumes:
   postgres-db-volume:
+  db_vol:

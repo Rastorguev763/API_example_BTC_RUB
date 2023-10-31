@@ -1,42 +1,31 @@
 from airflow import DAG
-from airflow.operators.docker_operator import DockerOperator
-from datetime import datetime, timedelta
 from airflow.operators.bash_operator import BashOperator
+from datetime import datetime, timedelta
 
+# Настройте аргументы для вашего DAG
 default_args = {
-    'owner': 'airflow',
-    'start_date': datetime(2023, 10, 24),
+    'owner': 'your_username',
+    'start_date': datetime.now(),
+    'retries': 1,  # Количество попыток в случае неудачи
+    'retry_delay': timedelta(minutes=2), # Интервал между попытками 2 минуты
+    'is_paused_upon_creation': False,  # Устанавливаем, чтобы DAG не был на паузе при создании
 }
 
+# Создайте объект DAG
 dag = DAG(
-    'my_docker_dag',
+    'run_main_py',
     default_args=default_args,
-    description='Run app_container every 10 minutes',
-    schedule_interval=timedelta(minutes=1),
-    catchup=False,  # Если вы хотите избежать наведения с накоплением данных
+    schedule_interval="* /10 * * *",  # Можете настроить расписание
+    catchup=False,
+    max_active_runs=1,  # Количество одновременных запусков DAG
 )
 
-# run_docker_task = DockerOperator(
-#     task_id='run_app_container',
-#     image='api_example_btc_rub-app',  # Имя вашего контейнера
-#     api_version='auto',
-#     docker_url='tcp://docker-proxy:2375',
-#     command='python /app/main.py',  # Команда, которую нужно выполнить в контейнере
-#     network_mode='bridge',  # Возможно, вам понадобится настроить сеть
-#     dag=dag,
-# )
-
-
-# run_docker_task
-# docker run -v /var/run/docker.sock:/var/run/docker.sock
-# Создание BashOperator для запуска контейнера Docker
-run_docker_container = BashOperator(
-    task_id='run_docker_container',
-    bash_command='docker run -v /var/run/docker.sock:/var/run/docker.sock api_example_btc_rub-app:latest',
-    # bash_command='docker --version',
+# Создайте оператор BashOperator для выполнения main.py
+run_main_task = BashOperator(
+    task_id='execute_main_py',
+    bash_command='python /app/main.py',  # Укажите путь к вашему main.py
     dag=dag,
 )
 
-run_docker_container
-if __name__ == "__main__":
-    dag.cli()
+# Определите порядок выполнения задач
+run_main_task
